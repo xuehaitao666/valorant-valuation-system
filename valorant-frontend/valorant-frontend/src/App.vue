@@ -1,5 +1,11 @@
 <template>
   <div class="container">
+    <transition name="toast">
+      <div v-if="toast.show" class="custom-toast" :class="toast.type">
+        {{ toast.message }}
+      </div>
+    </transition>
+
     <h1>无畏契约账号价值系统</h1>
 
     <div class="nav-tabs">
@@ -67,9 +73,19 @@
     </div>
   </div>
 </template>
-
 <script setup>
 import { ref } from 'vue'
+
+// ===== 新增：轻提示控制状态与函数 =====
+const toast = ref({ show: false, message: '', type: 'success' })
+
+const showToast = (message, type = 'success') => {
+  toast.value = { show: true, message, type }
+  // 3秒后自动消失
+  setTimeout(() => {
+    toast.value.show = false
+  }, 3000)
+}
 
 // 全局状态控制
 const currentTab = ref('evaluate') // 当前所在标签页
@@ -80,9 +96,11 @@ const resultData = ref(null)
 const isLoading = ref(false)
 
 const evaluateAccount = async () => {
-  if (!inputText.value.trim()) return alert('请输入库存文本！')
+  if (!inputText.value.trim()) return showToast('⚠️ 请输入库存文本！', 'error')
+  
   isLoading.value = true
   resultData.value = null
+  
   try {
     const response = await fetch('http://localhost:3000/api/evaluate', {
       method: 'POST',
@@ -90,10 +108,14 @@ const evaluateAccount = async () => {
       body: JSON.stringify({ text: inputText.value, userId: 1 })
     })
     const res = await response.json()
-    if (res.code === 200) resultData.value = res.data
-    else alert('评估失败: ' + res.error)
+    
+    if (res.code === 200) {
+      resultData.value = res.data
+    } else {
+      showToast('❌ 评估失败: ' + res.error, 'error')
+    }
   } catch (error) {
-    alert('请求失败，请检查后端是否运行！')
+    showToast('❌ 请求失败，请检查后端是否运行！', 'error')
   } finally {
     isLoading.value = false
   }
@@ -127,17 +149,17 @@ const saveSkinPrice = async (skin) => {
       })
     })
     const res = await response.json()
+    
     if (res.code === 200) {
-      alert(`[${skin.skin_name}] 价格已更新为 ${skin.price} 元！`)
+      showToast(`✅ [${skin.skin_name}] 价格已更新为 ${skin.price} 元！`, 'success')
     } else {
-      alert('保存失败: ' + res.error)
+      showToast('❌ 保存失败: ' + res.error, 'error')
     }
   } catch (error) {
-    alert('保存请求失败')
+    showToast('❌ 保存请求失败', 'error')
   }
 }
 </script>
-
 <style scoped>
 /* 样式部分 */
 .container { max-width: 900px; margin: 40px auto; padding: 20px; font-family: sans-serif; }
@@ -171,4 +193,35 @@ th { background-color: #f4f4f4; }
 .price-input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100px; font-size: 16px; }
 .save-btn { padding: 8px 15px; background-color: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; }
 .save-btn:hover { background-color: #059669; }
+
+
+/* ===== 新增：轻提示专属样式 ===== */
+.custom-toast {
+  position: fixed;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+}
+
+/* 成功状态为绿色，错误状态为无畏契约红 */
+.custom-toast.success { background-color: #10b981; }
+.custom-toast.error { background-color: #ff4655; }
+
+/* 丝滑的出现/消失动画 */
+.toast-enter-active, .toast-leave-active {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.toast-enter-from, .toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+}
 </style>
