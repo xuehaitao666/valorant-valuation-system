@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>测试估价接口</title>
+</head>
+<body>
+    <h2>无畏契约账号价值评估 - 前端测试</h2>
+    <button onclick="testAPI()">点击发送测试文本到后端</button>
+    <p>评估结果：<span id="result" style="color: red; font-weight: bold;">等待测试...</span></p>
+
+    <script>
+        async function testAPI() {
+            document.getElementById('result').innerText = "计算中...";
+            // 1. 准备要发给后端的文本数据
+            const payload = {
+                text: "库存价值：14850；【刀皮】：近战武器-2024全球冠军赛战刀；【枪皮】：幻象-2024全球冠军赛，暴徒-黑波",
+                userId: 1 // 你的用户ID
+            };
+
+            try {
+                // 2. 向你的 Node.js 服务器发送 POST 请求
+                const response = await fetch('http://localhost:3000/api/evaluate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                // 3. 拿到后端的计算结果
+                const data = await response.json();
+                console.log("后端返回的完整数据：", data);
+                
+                if(data.code === 200) {
+                    document.getElementById('result').innerText = data.data.totalValue + " 元";
+                } else {
+                    document.getElementById('result').innerText = "报错了：" + data.error;
+                }
+            } catch (error) {
+                document.getElementById('result').innerText = "请求失败，检查后端是否启动";
+            }
+        }
+    </script>
+</body>
+</html>
