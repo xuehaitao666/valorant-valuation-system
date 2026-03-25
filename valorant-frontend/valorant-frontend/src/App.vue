@@ -5,16 +5,46 @@
     </transition>
 
     <div v-if="!token" class="auth-section">
-      <h1 class="logo-title">无畏契约估价中心</h1>
-      <div class="auth-box">
-        <h2>{{ isLoginMode ? '欢迎登录' : '注册新账号' }}</h2>
-        <input v-model="authForm.username" type="text" placeholder="请输入用户名" />
-        <input v-model="authForm.password" type="password" placeholder="请输入密码" @keyup.enter="handleAuth" />
-        <button class="primary-btn" @click="handleAuth">{{ isLoginMode ? '登 录' : '注 册' }}</button>
-        <p class="switch-mode">
-          {{ isLoginMode ? '还没有账号？' : '已有账号？' }}
-          <span @click="isLoginMode = !isLoginMode">{{ isLoginMode ? '立即注册' : '返回登录' }}</span>
-        </p>
+      <div class="auth-layout">
+        <div class="auth-hero" aria-hidden="true">
+          <div class="little-person" :class="personStateClass">
+            <div class="person-head">
+              <div class="person-eye eye-left"></div>
+              <div class="person-eye eye-right"></div>
+              <div class="person-blush blush-left"></div>
+              <div class="person-blush blush-right"></div>
+            </div>
+            <div class="person-body"></div>
+          </div>
+          <div class="hero-text">
+            <div class="hero-title">无畏契约估价中心</div>
+            <div class="hero-subtitle">登录后即可配置皮肤价值，并实时与好友私聊</div>
+          </div>
+        </div>
+
+        <div class="auth-box">
+          <h2>{{ isLoginMode ? '欢迎登录' : '注册新账号' }}</h2>
+          <input
+            v-model="authForm.username"
+            type="text"
+            placeholder="请输入用户名"
+            @focus="authFocus = 'username'"
+            @blur="authFocus = null"
+          />
+          <input
+            v-model="authForm.password"
+            type="password"
+            placeholder="请输入密码"
+            @focus="authFocus = 'password'"
+            @blur="authFocus = null"
+            @keyup.enter="handleAuth"
+          />
+          <button class="primary-btn" @click="handleAuth">{{ isLoginMode ? '登 录' : '注 册' }}</button>
+          <p class="switch-mode">
+            {{ isLoginMode ? '还没有账号？' : '已有账号？' }}
+            <span @click="isLoginMode = !isLoginMode">{{ isLoginMode ? '立即注册' : '返回登录' }}</span>
+          </p>
+        </div>
       </div>
     </div>
 
@@ -30,6 +60,7 @@
       <div class="nav-tabs">
         <button :class="{ active: currentTab === 'evaluate' }" @click="currentTab = 'evaluate'">账号估价台</button>
         <button :class="{ active: currentTab === 'config' }" @click="switchToConfig">皮肤价格配置</button>
+        <button :class="{ active: currentTab === 'friends' }" @click="switchToFriends">好友</button>
       </div>
 
       <div v-if="currentTab === 'evaluate'" class="tab-content">
@@ -79,13 +110,101 @@
           </tbody>
         </table>
       </div>
+
+      <div v-if="currentTab === 'friends'" class="tab-content friends-section">
+        <div class="section-title">好友功能（MVP）</div>
+
+        <div class="input-section friend-input-section">
+          <input
+            v-model="friendTargetUsername"
+            type="text"
+            placeholder="请输入要添加的用户名"
+            class="friend-input"
+            @keyup.enter="sendFriendRequest"
+          />
+          <button class="primary-btn" @click="sendFriendRequest" :disabled="isFriendsLoading">
+            {{ isFriendsLoading ? '处理中...' : '发送好友请求' }}
+          </button>
+        </div>
+
+        <div class="friends-grid">
+          <div class="friends-block">
+            <h2>我的好友</h2>
+            <div v-if="friendList.length === 0" class="empty-state">暂无好友</div>
+            <div
+              v-else
+              class="friend-row"
+              v-for="f in friendList"
+              :key="f.id"
+              :class="{ active: selectedFriendId === f.id }"
+              @click="selectFriend(f.id)"
+            >
+              <span class="friend-name">{{ f.username }}</span>
+            </div>
+          </div>
+
+          <div class="friends-block chat-block">
+            <h2>实时聊天</h2>
+
+            <div v-if="!selectedFriendId" class="empty-state">请选择一个好友开始聊天</div>
+            <div v-else>
+              <div class="chat-header">
+                <span>与</span>
+                <strong>{{ selectedFriend ? selectedFriend.username : '' }}</strong>
+                <span class="chat-tip">（实时）</span>
+              </div>
+
+              <div class="chat-messages">
+                <div v-if="chatMessages.length === 0" class="empty-state">暂无消息</div>
+                <div
+                  v-else
+                  v-for="m in chatMessages"
+                  :key="m.id"
+                  :class="['chat-bubble', m.sender_id === myUserId ? 'mine' : 'theirs']"
+                >
+                  <div class="chat-content">{{ m.content }}</div>
+                  <div class="chat-time">{{ formatTime(m.created_at) }}</div>
+                </div>
+              </div>
+
+              <div class="chat-input-row">
+                <input
+                  v-model="chatInput"
+                  class="chat-input"
+                  placeholder="输入消息..."
+                  @keyup.enter="sendChatMessage"
+                />
+                <button class="send-btn" @click="sendChatMessage" :disabled="!isChatConnected || !chatInput.trim()">
+                  发送
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="friends-block">
+            <h2>等待你同意</h2>
+            <div v-if="incomingRequests.length === 0" class="empty-state">暂无待处理请求</div>
+            <div v-else class="request-row" v-for="r in incomingRequests" :key="r.id">
+              <div class="request-info">
+                <span>来自</span>
+                <strong>{{ r.from_username }}</strong>
+              </div>
+              <div class="request-actions">
+                <button class="accept-btn" @click="acceptFriendRequest(r.id)" :disabled="isFriendsLoading">同意</button>
+                <button class="reject-btn" @click="rejectFriendRequest(r.id)" :disabled="isFriendsLoading">拒绝</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import * as echarts from 'echarts'
+import { io } from 'socket.io-client'
 // ===== 核心改动 1：引入我们刚刚封装好的 Axios 请求工具 =====
 import request from './utils/request'
 
@@ -97,8 +216,29 @@ const showToast = (message, type = 'success') => {
 
 const token = ref(localStorage.getItem('valorant_token') || '')
 const currentUser = ref(localStorage.getItem('valorant_username') || '')
+const authFocus = ref(null) // 'username' | 'password' | null
+const decodeJwtUserId = (jwtStr) => {
+  try {
+    if (!jwtStr) return null
+    const payload = jwtStr.split('.')[1]
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const decoded = JSON.parse(atob(padded))
+    const userId = decoded?.userId
+    return userId ? Number(userId) : null
+  } catch {
+    return null
+  }
+}
+const myUserId = ref(decodeJwtUserId(token.value))
 const isLoginMode = ref(true)
 const authForm = ref({ username: '', password: '' })
+
+const personStateClass = computed(() => {
+  if (authFocus.value === 'username') return 'look'
+  if (authFocus.value === 'password') return 'shy'
+  return 'idle'
+})
 
 // ===== 核心改动 2：登录/注册接口改用 Axios =====
 const handleAuth = async () => {
@@ -112,6 +252,7 @@ const handleAuth = async () => {
       if (isLoginMode.value) {
         token.value = res.token
         currentUser.value = res.username
+        myUserId.value = decodeJwtUserId(res.token)
         localStorage.setItem('valorant_token', res.token)
         localStorage.setItem('valorant_username', res.username)
         authForm.value = { username: '', password: '' }
@@ -128,6 +269,17 @@ const logout = () => {
   token.value = ''; currentUser.value = '';
   localStorage.removeItem('valorant_token'); localStorage.removeItem('valorant_username');
   currentTab.value = 'evaluate'; resultData.value = null;
+  friendTargetUsername.value = ''
+  friendList.value = []
+  incomingRequests.value = []
+  selectedFriendId.value = null
+  chatMessages.value = []
+  chatInput.value = ''
+  myUserId.value = null
+  if (chatSocket) {
+    chatSocket.disconnect()
+    chatSocket = null
+  }
   showToast('👋 已退出登录', 'success')
 }
 
@@ -136,6 +288,33 @@ const inputText = ref('')
 const resultData = ref(null)
 const isLoading = ref(false)
 const skinList = ref([])
+
+// ===== 好友功能（MVP）=====
+const friendTargetUsername = ref('')
+const friendList = ref([])
+const incomingRequests = ref([])
+const isFriendsLoading = ref(false)
+
+// ===== 实时聊天（Socket.IO）=====
+let chatSocket = null
+const isChatConnected = ref(false)
+const selectedFriendId = ref(null)
+const selectedFriend = computed(() => friendList.value.find(f => f.id === selectedFriendId.value) || null)
+const chatMessages = ref([])
+const chatInput = ref('')
+
+const getRoomId = (userA, userB) => {
+  const a = Number(userA)
+  const b = Number(userB)
+  const min = Math.min(a, b)
+  const max = Math.max(a, b)
+  return `room:${min}_${max}`
+}
+
+const currentRoomId = computed(() => {
+  if (!myUserId.value || !selectedFriendId.value) return null
+  return getRoomId(myUserId.value, selectedFriendId.value)
+})
 
 const chartRef = ref(null)
 let myChart = null
@@ -207,6 +386,153 @@ const saveSkinPrice = async (skin) => {
     if(error.response?.status !== 401) showToast('❌ 保存请求失败', 'error')
   }
 }
+
+const loadFriends = async () => {
+  isFriendsLoading.value = true
+  try {
+    const [friendsRes, incomingRes] = await Promise.all([
+      request.get('/friends/list'),
+      request.get('/friends/requests/incoming')
+    ])
+    friendList.value = friendsRes?.code === 200 ? (friendsRes.data || []) : []
+    incomingRequests.value = incomingRes?.code === 200 ? (incomingRes.data || []) : []
+  } catch (error) {
+    showToast('❌ 获取好友信息失败', 'error')
+  } finally {
+    isFriendsLoading.value = false
+  }
+}
+
+const switchToFriends = async () => {
+  currentTab.value = 'friends'
+  await loadFriends()
+  initChatSocket()
+}
+
+const sendFriendRequest = async () => {
+  const target = friendTargetUsername.value?.trim()
+  if (!target) return showToast('⚠️ 请输入要添加的用户名', 'error')
+
+  isFriendsLoading.value = true
+  try {
+    const res = await request.post('/friends/request', { targetUsername: target })
+    if (res?.code === 200) {
+      showToast(`✅ ${res.message}`, 'success')
+      friendTargetUsername.value = ''
+      await loadFriends()
+    } else {
+      showToast('❌ ' + (res?.error || '发送失败'), 'error')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.error || '发送失败'
+    showToast('❌ ' + msg, 'error')
+  } finally {
+    isFriendsLoading.value = false
+  }
+}
+
+const acceptFriendRequest = async (requestId) => {
+  isFriendsLoading.value = true
+  try {
+    const res = await request.post(`/friends/requests/${requestId}/accept`)
+    if (res?.code === 200) {
+      showToast(`✅ ${res.message}`, 'success')
+      await loadFriends()
+    } else {
+      showToast('❌ ' + (res?.error || '操作失败'), 'error')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.error || '操作失败'
+    showToast('❌ ' + msg, 'error')
+  } finally {
+    isFriendsLoading.value = false
+  }
+}
+
+const rejectFriendRequest = async (requestId) => {
+  isFriendsLoading.value = true
+  try {
+    const res = await request.post(`/friends/requests/${requestId}/reject`)
+    if (res?.code === 200) {
+      showToast(`✅ ${res.message}`, 'success')
+      await loadFriends()
+    } else {
+      showToast('❌ ' + (res?.error || '操作失败'), 'error')
+    }
+  } catch (error) {
+    const msg = error?.response?.data?.error || '操作失败'
+    showToast('❌ ' + msg, 'error')
+  } finally {
+    isFriendsLoading.value = false
+  }
+}
+
+const formatTime = (createdAt) => {
+  try {
+    const d = new Date(createdAt)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
+const initChatSocket = () => {
+  if (chatSocket) return
+
+  const tokenStr = token.value || localStorage.getItem('valorant_token')
+  if (!tokenStr) return
+
+  chatSocket = io('http://localhost:3000', {
+    auth: { token: tokenStr },
+    transports: ['websocket'],
+  })
+
+  chatSocket.on('connect', () => {
+    isChatConnected.value = true
+  })
+
+  chatSocket.on('disconnect', () => {
+    isChatConnected.value = false
+  })
+
+  chatSocket.on('chat:error', ({ error }) => {
+    showToast('❌ ' + (error || '聊天错误'), 'error')
+  })
+
+  chatSocket.on('chat:history', ({ roomId, messages }) => {
+    if (currentRoomId.value && roomId !== currentRoomId.value) return
+    chatMessages.value = messages || []
+  })
+
+  chatSocket.on('chat:message', (message) => {
+    if (!selectedFriendId.value) return
+    if (currentRoomId.value && message.room_id !== currentRoomId.value) return
+    chatMessages.value.push(message)
+  })
+}
+
+const selectFriend = (friendId) => {
+  selectedFriendId.value = friendId
+  chatMessages.value = []
+  if (!chatSocket) initChatSocket()
+  if (!chatSocket) return
+  chatSocket.emit('chat:join', { toUserId: friendId })
+  chatSocket.emit('chat:history', { toUserId: friendId, limit: 50 })
+}
+
+const sendChatMessage = () => {
+  if (!selectedFriendId.value) return
+  const text = chatInput.value.trim()
+  if (!text) return
+  if (!chatSocket) return showToast('❌ 聊天未连接', 'error')
+  chatSocket.emit('chat:send', { toUserId: selectedFriendId.value, content: text })
+  chatInput.value = ''
+}
+
+onBeforeUnmount(() => {
+  if (chatSocket) chatSocket.disconnect()
+  chatSocket = null
+})
 </script>
 
 <style scoped>
@@ -217,8 +543,12 @@ const saveSkinPrice = async (skin) => {
 .custom-toast.error { background-color: #ff4655; }
 .toast-enter-active, .toast-leave-active { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -20px); }
-.auth-section { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; }
-.logo-title { color: #ff4655; font-size: 36px; margin-bottom: 30px; letter-spacing: 2px; }
+.auth-section { display: flex; align-items: center; justify-content: center; min-height: 70vh; }
+.auth-layout { width: 100%; max-width: 980px; display: grid; grid-template-columns: 1fr 420px; gap: 28px; align-items: center; }
+.auth-hero { display: flex; align-items: center; gap: 22px; padding: 20px; }
+.hero-text { display: flex; flex-direction: column; gap: 10px; }
+.hero-title { color: #ff4655; font-size: 40px; font-weight: 900; letter-spacing: 2px; line-height: 1.1; }
+.hero-subtitle { color: #333; font-size: 14px; opacity: 0.75; }
 .auth-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
 .auth-box h2 { margin-bottom: 25px; color: #333; }
 .auth-box input { width: 100%; padding: 14px; margin-bottom: 15px; border: 2px solid #eee; border-radius: 8px; font-size: 16px; outline: none; transition: 0.2s; box-sizing: border-box; }
@@ -226,6 +556,104 @@ const saveSkinPrice = async (skin) => {
 .switch-mode { margin-top: 20px; color: #666; font-size: 14px; }
 .switch-mode span { color: #ff4655; cursor: pointer; font-weight: bold; }
 .switch-mode span:hover { text-decoration: underline; }
+
+/* ===== 登录页左侧小人形象（纯 CSS）===== */
+.little-person {
+  position: relative;
+  width: 160px;
+  height: 180px;
+  flex: 0 0 auto;
+  transform-origin: center;
+  transition: transform 280ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.person-head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 3px solid rgba(255, 70, 85, 0.25);
+  border-radius: 42px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  transition:
+    transform 300ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    border-color 300ms ease;
+}
+
+.person-body {
+  position: absolute;
+  top: 105px;
+  left: 50%;
+  width: 95px;
+  height: 70px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(255,70,85,0.85), rgba(255,70,85,0.65));
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(255,70,85,0.15);
+}
+
+.person-eye {
+  position: absolute;
+  top: 46px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #111;
+  transition: transform 220ms ease;
+}
+.eye-left { left: 34px; }
+.eye-right { right: 34px; }
+
+.person-blush {
+  position: absolute;
+  top: 74px;
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 70, 85, 0.25);
+  transition: opacity 220ms ease;
+  opacity: 0.25;
+}
+.blush-left { left: 22px; }
+.blush-right { right: 22px; }
+
+/* 默认：站好 */
+.little-person.idle .person-head {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 输入用户名：探头看（朝右靠近表单） */
+.little-person.look .person-head {
+  transform: translateX(-50%) translateX(14px) translateY(6px);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.little-person.look .person-eye {
+  transform: translateX(4px);
+}
+.little-person.look .person-blush {
+  opacity: 0.4;
+}
+
+/* 输入密码：害羞背对（头转开） */
+.little-person.shy .person-head {
+  transform: translateX(-50%) rotateY(180deg) translateY(2px);
+  border-color: rgba(60, 60, 60, 0.2);
+}
+.little-person.shy .person-eye {
+  transform: scaleX(0.2);
+}
+.little-person.shy .person-blush {
+  opacity: 0.12;
+}
+
+@media (max-width: 900px) {
+  .auth-layout { grid-template-columns: 1fr; }
+  .auth-hero { justify-content: center; }
+  .auth-box { max-width: 460px; margin: 0 auto; }
+}
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #eee; }
 .header h1 { margin: 0; font-size: 28px; color: #333; }
 .user-info { display: flex; align-items: center; gap: 20px; color: #666; }
@@ -262,5 +690,220 @@ th { background-color: #f4f4f4; }
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* ===== 好友功能样式 ===== */
+.section-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  color: #333;
+  text-align: center;
+}
+
+.friends-section {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.friend-input-section {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.friend-input {
+  width: 100%;
+  padding: 14px;
+  font-size: 14px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 18px;
+}
+
+.friends-block {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.friends-block h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.empty-state {
+  color: #888;
+  font-size: 14px;
+  padding: 10px 0;
+}
+
+.friend-row {
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f1f1;
+  cursor: pointer;
+}
+
+.friend-row.active {
+  background: rgba(255, 70, 85, 0.06);
+  border-bottom-color: rgba(255, 70, 85, 0.35);
+}
+
+.friend-name {
+  color: #ff4655;
+  font-weight: bold;
+}
+
+/* ===== 实时聊天样式 ===== */
+.chat-block {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.chat-tip {
+  color: #10b981;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #fff;
+  border: 1px solid #f1f1f1;
+  border-radius: 10px;
+  padding: 12px;
+  height: 290px;
+}
+
+.chat-bubble {
+  max-width: 80%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin: 8px 0;
+}
+
+.chat-bubble.mine {
+  margin-left: auto;
+  background-color: #10b981;
+  color: #fff;
+}
+
+.chat-bubble.theirs {
+  margin-right: auto;
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+.chat-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-time {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 6px;
+  text-align: right;
+}
+
+.chat-input-row {
+  display: grid;
+  grid-template-columns: 1fr 100px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+}
+
+.send-btn {
+  padding: 12px 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background-color: #ff4655;
+  color: #fff;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-btn:hover:not(:disabled) {
+  background-color: #e03e4d;
+}
+
+.request-row {
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.request-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.accept-btn, .reject-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  font-weight: bold;
+  color: white;
+}
+
+.accept-btn {
+  background-color: #10b981;
+}
+
+.accept-btn:hover {
+  background-color: #059669;
+}
+
+.reject-btn {
+  background-color: #ff4655;
+}
+
+.reject-btn:hover {
+  background-color: #e03e4d;
 }
 </style>

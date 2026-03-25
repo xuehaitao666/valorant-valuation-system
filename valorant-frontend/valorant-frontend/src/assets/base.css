@@ -62,6 +62,11 @@ body {
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
+  background-image: url('/c__Users_xuehaitao_AppData_Roaming_Cursor_User_workspaceStorage_a81e0c94dca44977c44b2eaad300e1e5_images_cec817aafed714b9de19e07a51d91543_720-115e7dd7-e473-49fc-b14d-d65919bf95dc.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   transition:
     color 0.5s,
     background-color 0.5s;
