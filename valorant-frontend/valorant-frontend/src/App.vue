@@ -13,6 +13,7 @@
               <div class="person-eye eye-right"></div>
               <div class="person-blush blush-left"></div>
               <div class="person-blush blush-right"></div>
+              <div class="person-cover" aria-hidden="true"></div>
             </div>
             <div class="person-body"></div>
           </div>
@@ -620,6 +621,32 @@ onBeforeUnmount(() => {
 .blush-left { left: 22px; }
 .blush-right { right: 22px; }
 
+.person-cover {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  width: 92px;
+  height: 58px;
+  transform: translateX(-50%) translateY(6px);
+  background: rgba(60, 60, 60, 0.22);
+  border: 2px solid rgba(60, 60, 60, 0.14);
+  border-radius: 28px;
+  opacity: 0;
+  transition:
+    opacity 220ms ease,
+    transform 280ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes eyeBlink {
+  0% { transform: scaleY(1); }
+  48% { transform: scaleY(1); }
+  52% { transform: scaleY(0.15); }
+  56% { transform: scaleY(1); }
+  100% { transform: scaleY(1); }
+}
+
 /* 默认：站好 */
 .little-person.idle .person-head {
   transform: translateX(-50%) translateY(0);
@@ -627,26 +654,36 @@ onBeforeUnmount(() => {
 
 /* 输入用户名：探头看（朝右靠近表单） */
 .little-person.look .person-head {
-  transform: translateX(-50%) translateX(14px) translateY(6px);
+  transform: translateX(-50%) translateX(22px) translateY(8px) rotateZ(-4deg);
   border-color: rgba(16, 185, 129, 0.35);
 }
 .little-person.look .person-eye {
   transform: translateX(4px);
+  animation: eyeBlink 2.6s ease-in-out infinite;
 }
 .little-person.look .person-blush {
   opacity: 0.4;
 }
+.little-person.look .person-cover {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+}
 
 /* 输入密码：害羞背对（头转开） */
 .little-person.shy .person-head {
-  transform: translateX(-50%) rotateY(180deg) translateY(2px);
+  transform: translateX(-50%) rotateY(180deg) translateY(2px) rotateZ(3deg);
   border-color: rgba(60, 60, 60, 0.2);
 }
 .little-person.shy .person-eye {
   transform: scaleX(0.2);
+  opacity: 0.15;
 }
 .little-person.shy .person-blush {
   opacity: 0.12;
+}
+.little-person.shy .person-cover {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
 }
 
 @media (max-width: 900px) {
