@@ -40,6 +40,13 @@
             @blur="authFocus = null"
             @keyup.enter="handleAuth"
           />
+          <input
+            v-if="!isLoginMode"
+            v-model="authForm.confirmPassword"
+            type="password"
+            placeholder="请确认密码"
+            @keyup.enter="handleAuth"
+          />
           <button class="primary-btn" @click="handleAuth">{{ isLoginMode ? '登 录' : '注 册' }}</button>
           <p class="switch-mode">
             {{ isLoginMode ? '还没有账号？' : '已有账号？' }}
@@ -96,12 +103,26 @@
 
       <div v-if="currentTab === 'config'" class="tab-content config-section">
         <p class="tips">在这里设置你专属的皮肤价值，每个人的定价都是独立的哦！</p>
+        
+        <!-- 添加筛选栏 -->
+        <div class="filter-section">
+          <select v-model="categoryFilter" class="filter-select">
+            <option value="">全部分类</option>
+            <option value="刀皮">刀皮</option>
+            <option value="枪皮">枪皮</option>
+          </select>
+          <select v-model="weaponTypeFilter" class="filter-select">
+            <option value="">全部武器类型</option>
+            <option v-for="type in weaponTypes" :key="type" :value="type">{{ type }}</option>
+          </select>
+        </div>
+        
         <table>
           <thead>
             <tr><th>分类</th><th>武器</th><th>皮肤名称</th><th>自定义价值 (元)</th><th>操作</th></tr>
           </thead>
           <tbody>
-            <tr v-for="skin in skinList" :key="skin.id">
+            <tr v-for="skin in filteredSkinList" :key="skin.id">
               <td>{{ skin.category }}</td>
               <td>{{ skin.weapon_type }}</td>
               <td>{{ skin.skin_name }}</td>
@@ -233,7 +254,7 @@ const decodeJwtUserId = (jwtStr) => {
 }
 const myUserId = ref(decodeJwtUserId(token.value))
 const isLoginMode = ref(true)
-const authForm = ref({ username: '', password: '' })
+const authForm = ref({ username: '', password: '', confirmPassword: '' })
 
 const personStateClass = computed(() => {
   if (authFocus.value === 'username') return 'look'
@@ -244,6 +265,7 @@ const personStateClass = computed(() => {
 // ===== 核心改动 2：登录/注册接口改用 Axios =====
 const handleAuth = async () => {
   if (!authForm.value.username || !authForm.value.password) return showToast('⚠️ 用户名和密码不能为空', 'error')
+  if (!isLoginMode.value && authForm.value.password !== authForm.value.confirmPassword) return showToast('⚠️ 两次输入的密码不一致', 'error')
   const endpoint = isLoginMode.value ? '/login' : '/register' // 因为 baseURL 配置了，直接写短路径
   try {
     const res = await request.post(endpoint, authForm.value)
@@ -256,9 +278,10 @@ const handleAuth = async () => {
         myUserId.value = decodeJwtUserId(res.token)
         localStorage.setItem('valorant_token', res.token)
         localStorage.setItem('valorant_username', res.username)
-        authForm.value = { username: '', password: '' }
+        authForm.value = { username: '', password: '', confirmPassword: '' }
       } else {
         isLoginMode.value = true
+        authForm.value = { username: '', password: '', confirmPassword: '' }
       }
     } else showToast(`❌ ${res.error}`, 'error')
   } catch (error) { 
@@ -290,7 +313,28 @@ const resultData = ref(null)
 const isLoading = ref(false)
 const skinList = ref([])
 
-// ===== 好友功能（MVP）=====
+// 皮肤筛选相关
+const categoryFilter = ref('')
+const weaponTypeFilter = ref('')
+
+// 武器类型列表（从皮肤数据中提取）
+const weaponTypes = computed(() => {
+  const types = new Set()
+  skinList.value.forEach(skin => {
+    if (skin.weapon_type) types.add(skin.weapon_type)
+  })
+  return Array.from(types).sort()
+})
+
+// 筛选后的皮肤列表
+const filteredSkinList = computed(() => {
+  return skinList.value.filter(skin => {
+    const categoryMatch = !categoryFilter.value || skin.category === categoryFilter.value
+    const weaponMatch = !weaponTypeFilter.value || skin.weapon_type === weaponTypeFilter.value
+    return categoryMatch && weaponMatch
+  })
+})
+
 const friendTargetUsername = ref('')
 const friendList = ref([])
 const incomingRequests = ref([])
@@ -535,7 +579,6 @@ onBeforeUnmount(() => {
   chatSocket = null
 })
 </script>
-
 <style scoped>
 /* 原有样式保留 */
 .container { max-width: 900px; margin: 40px auto; padding: 20px; font-family: sans-serif; }
@@ -653,6 +696,10 @@ onBeforeUnmount(() => {
 }
 
 /* 输入用户名：探头看（朝右靠近表单） */
+.little-person.look .person-head {
+  transform: translateX(-50%) translateX(22px) translateY(8px) rotateZ(-4deg);
+  border-color: rgba(16, 185, 129, 0.35);
+}
 .little-person.look .person-head {
   transform: translateX(-50%) translateX(22px) translateY(8px) rotateZ(-4deg);
   border-color: rgba(16, 185, 129, 0.35);
@@ -943,4 +990,37 @@ th { background-color: #f4f4f4; }
 .reject-btn:hover {
   background-color: #e03e4d;
 }
+.config-section .filter-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.config-section .filter-select {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.config-section .filter-select:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.config-section .filter-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
 </style>
+
+
+
+
+
