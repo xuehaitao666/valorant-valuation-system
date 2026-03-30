@@ -1,10 +1,13 @@
-// 模拟前端传给后端的长文本
-const inventoryText = "库存价值：14850；【刀皮】：近战武器-2024全球冠军赛战刀；【枪皮】：幻象-2024全球冠军赛，暴徒-黑波，捍卫者-光炫声谱，暴徒-掠夺印象，制式手枪-偶像星夢，神射-復古奇機，鬼魅-位元轉移，神射-奈米微晶，鬼魅-星月耀年";
-
-// 核心解析函数
-function parseInventory(text) {
+/**
+ * 核心解析函数：将库存文本解析为结构化数据
+ * @param {string} text - 输入的库存长文本
+ * @returns {Array} - 解析后的皮肤对象数组
+ */
+export function parseInventory(text) {
   const parsedSkins = [];
   
+  if (!text) return parsedSkins;
+
   // 1. 按全角分号拆分大类
   const categories = text.split('；');
 
@@ -39,8 +42,3 @@ function parseInventory(text) {
 
   return parsedSkins;
 }
-
-// 执行并打印结果
-const mySkins = parseInventory(inventoryText);
-console.log("解析成功！共提取出", mySkins.length, "个皮肤：");
-console.log(mySkins);

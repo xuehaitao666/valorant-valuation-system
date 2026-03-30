@@ -7,9 +7,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // 将仓库根目录的 assets 目录作为静态资源目录
-  // 这样可以直接通过 /<文件名> 在前端引用这些图片
-  publicDir: '../../assets',
+  // 使用默认的 public 目录
+  // publicDir: '../assets', 
+
   plugins: [
     vue(),
     vueJsx(),
